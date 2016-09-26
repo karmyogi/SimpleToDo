@@ -1,7 +1,9 @@
 package com.intellix.simpletodo;
 
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.content.Intent;
+import android.database.DatabaseErrorHandler;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.AdapterView;
@@ -9,6 +11,9 @@ import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.Toast;
+
+import com.activeandroid.query.Delete;
+import com.activeandroid.query.Select;
 
 import org.apache.commons.io.FileUtils;
 
@@ -24,6 +29,7 @@ public class MainActivity extends Activity {
     ArrayAdapter<String> itemsAdapter;
     ListView lvItems;
     private final int REQUEST_CODE = 20;
+    String currentItem;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -32,7 +38,8 @@ public class MainActivity extends Activity {
 
         lvItems = (ListView)findViewById(R.id.lvItems);
         //items = new ArrayList<>();
-        readItems();
+        //readItems();
+        QueryDatabase();
         itemsAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, items);
         lvItems.setAdapter(itemsAdapter);
        // items.add("First Item");
@@ -48,9 +55,10 @@ public class MainActivity extends Activity {
                 @Override
                 public boolean onItemLongClick(AdapterView<?> adapter, View item, int pos, long id)
                 {
+                    String selectedItem = lvItems.getItemAtPosition(pos).toString();
+                    DeleteFromDatabase(selectedItem);
                     items.remove(pos);
                     itemsAdapter.notifyDataSetChanged();
-                    writeItems();
                     return true;
                 }
             });
@@ -64,6 +72,8 @@ public class MainActivity extends Activity {
 
                 //create a bundle and pass selected item and items array to be modified on next screen
                 String selectedItem = lvItems.getItemAtPosition(position).toString();
+                currentItem = selectedItem;
+
                 Bundle b = new Bundle();
                 b.putString("item", selectedItem);
                 b.putInt("position", position);
@@ -79,9 +89,11 @@ public class MainActivity extends Activity {
     {
         EditText etNewItem = (EditText)findViewById(R.id.etNewItem);
         String itemText = etNewItem.getText().toString();
+        AddToDatabase(itemText);
         itemsAdapter.add(itemText);
         etNewItem.setText("");
-        writeItems();
+        //writeItems();
+
     }
 
     // time to handle the result of the sub-activity
@@ -91,16 +103,17 @@ public class MainActivity extends Activity {
         if (resultCode == RESULT_OK && requestCode == REQUEST_CODE) {
             // Extract item and position from result extras
             String modifiedItem = data.getExtras().getString("item");
-            int position = data.getExtras().getInt("position", 0);
 
+            //write new values
+            //writeItems();
+            UpdateToDatabase(modifiedItem);
+
+            int position = data.getExtras().getInt("position", 0);
             //update items with new value
             items.set(position, modifiedItem);
 
             //fire notification to reflect new value in list display
             itemsAdapter.notifyDataSetChanged();
-
-            //write new values to fi
-            writeItems();
         }
     }
 
@@ -125,6 +138,52 @@ public class MainActivity extends Activity {
             FileUtils.writeLines(todoFile, items);
         } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+    //delete task
+    private void DeleteFromDatabase(String item) {
+        try
+        {
+            TaskModel.deleteTask(item);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+    //add new task
+    private void AddToDatabase(String item) {
+        try
+        {
+            TaskModel.insertTask(item);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+    //update task
+    private void UpdateToDatabase(String modifieditem) {
+        try
+        {
+            TaskModel.updateTask(currentItem, modifieditem);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+    //get list of tasks
+    private void QueryDatabase()
+    {
+        //items.clear();
+        try
+        {
+            items = new ArrayList<String>();
+
+            for (TaskModel t : TaskModel.getAll()) {
+                items.add(t.name);
+            }
+
+
+        } catch (Exception e) {
+            items = new ArrayList<String>();
+            //e.printStackTrace();
         }
     }
 }
